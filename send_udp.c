@@ -13,16 +13,26 @@
 #include <netinet/in.h> 
 #include <time.h>
 
-#define PORT 8080
+#define PORT 8091
 #define CHUNKSIZE 4096
 #define HEADER 2
 #define DONE_BIT (1 << 7)
 
-int main()
+int main(int argc, char* argv[] )
 {
   
+	const char* file = "vmlinuz.tar";
+	const char* ip_addr = "192.168.0.100";
+	if(argc == 3)
+	{
+		file = argv[1];
+		ip_addr = argv[2];
+		printf("reading file %s and sending to ip address %s\n",file,ip_addr);
+	}
+
+
   	//
-	FILE* fp = fopen("vmlinuz.tar","r" );
+	FILE* fp = fopen(file,"r" );
 	if(fp == NULL ){
 		perror("invalid file");
 		exit(EXIT_FAILURE);
@@ -76,11 +86,15 @@ int main()
     // Filling server information 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_port = htons(PORT); 
-    servaddr.sin_addr.s_addr = htons(INADDR_ANY); 
+    servaddr.sin_addr.s_addr = htons(ip_addr);
+
+    if(inet_pton(AF_INET,ip_addr,(&(servaddr.sin_addr))) < 0)
+    	perror("inet");
+
     //
     int n;
 
-    sleep(30);
+    sleep(10);
 
     //
     unsigned char local[CHUNKSIZE+HEADER];
@@ -100,8 +114,8 @@ int main()
 		local[1] = high;
 
 		// sleep for a bit in case you have been running long
-		if((n % 5) == 0)
-			usleep(1000);
+		//if((n % 5) == 0)
+		//	usleep(1000);
 
 		//
 		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
