@@ -18,17 +18,49 @@
 #define HEADER 2
 #define DONE_BIT (1 << 7)
 
+
+void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** filename)
+{
+	int c;
+	extern char *optarg;
+	extern int optind, optopt, opterr;
+
+
+	while ((c = getopt(argc, argv, ":s:f:i:")) != -1)
+	{
+		switch(c)
+		{
+		case 's':
+		    *sleep_time = atoi(optarg);
+			printf("sleep is set to %d optarg\n",*sleep_time);
+			break;
+		case 'i':
+		    *ip = optarg;
+			printf("ip is set to %s\n",*ip);
+			break;
+		case 'f':
+			*filename = optarg;
+        	printf("filename is %s\n", *filename);
+        	break;
+    	case ':':
+        	printf("-%c without parameter\n", optopt);
+        	break;
+    	}
+	}
+}
+
 int main(int argc, char* argv[] )
 {
   
-	const char* file = "vmlinuz.tar";
-	const char* ip_addr = "192.168.0.100";
-	if(argc == 3)
-	{
-		file = argv[1];
-		ip_addr = argv[2];
-		printf("reading file %s and sending to ip address %s\n",file,ip_addr);
-	}
+	char* file = "vmlinuz.tar";
+	char* ip_addr = "192.168.0.100";
+	int sleep_time = 5;
+    handle_input(argc,argv,&sleep_time,&ip_addr,&file);
+
+    printf("sleep is set to %d optarg\n",sleep_time);
+    printf("ip is set to %s\n",ip_addr);
+    printf("filename is %s\n", file);
+
 
 
   	//
@@ -113,9 +145,9 @@ int main(int argc, char* argv[] )
 		local[0] = low;
 		local[1] = high;
 
-		// sleep for a bit in case you have been running long
-		//if((n % 5) == 0)
-		//	usleep(1000);
+		// sleep for a bit you will likely need to sleep if you are running client and server on one board
+		if(sleep_time)
+			usleep(sleep_time);
 
 		//
 		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
