@@ -10,7 +10,7 @@ sleep time is 5
 filename is vmlinuz.tar 
 ip address is 192.168.0.100
 
-This file breaks up a file and sends them via ethernet to your ultra96 board.
+This file breaks up a file and sends them via udp datagrams to your ultra96 board.
 
 Be sure to run ifconfig on both your sender and receiver boards
 
