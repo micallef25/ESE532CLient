@@ -49,6 +49,7 @@ void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** file
 	}
 }
 
+// client ... its not pretty but it gets the job done...
 int main(int argc, char* argv[] )
 {
   
@@ -130,6 +131,29 @@ int main(int argc, char* argv[] )
 
     //
     unsigned char local[CHUNKSIZE+HEADER];
+	// handle case where chunk size is bigger than the file
+	if(loops == 0)
+	{
+		//
+		memcpy(&local[HEADER],&buff[loops*CHUNKSIZE],remainder);
+
+		//
+		char high = remainder >> 8;
+		char low = remainder & 0xFF;
+
+		//
+		local[0] = low;
+		local[1] = high | DONE_BIT;
+
+
+		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
+		sleep(10);
+		close(sockfd);
+		fclose(fp);
+		free(buff); 	
+		return 0;
+	}
+	
 
     // send chunk size bytes
 	for( n = 0; n < loops-1; n++)
@@ -206,7 +230,7 @@ int main(int argc, char* argv[] )
 		local[1] = high | DONE_BIT;
 
 
-		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
+		sendto(sockfd,&local[0],remainder,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
 		n++; 
 	}
 
