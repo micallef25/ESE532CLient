@@ -230,7 +230,7 @@ int main(int argc, char* argv[] )
 		local[1] = high | DONE_BIT;
 
 
-		sendto(sockfd,&local[0],remainder,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
+		sendto(sockfd,&local[0],remainder+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
 		n++; 
 	}
 
