@@ -14,21 +14,22 @@
 #include <time.h>
 
 #define PORT 8091
-#define CHUNKSIZE 4096
+#define CHUNKSIZE 2048
+#define MAX_CHUNKSIZE 16384
 #define HEADER 2
 #define DONE_BIT (1 << 7)
 
 
-void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** filename)
+void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** filename,int* chunksize)
 {
-	int c;
+	int x;
 	extern char *optarg;
 	extern int optind, optopt, opterr;
 
 
-	while ((c = getopt(argc, argv, ":s:f:i:")) != -1)
+	while ((x = getopt(argc, argv, ":s:f:i:c:")) != -1)
 	{
-		switch(c)
+		switch(x)
 		{
 		case 's':
 		    *sleep_time = atoi(optarg);
@@ -42,6 +43,10 @@ void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** file
 			*filename = optarg;
         	printf("filename is %s\n", *filename);
         	break;
+        case 'c':
+			*chunksize = atoi(optarg);
+        	printf("chunksize is %d\n", *chunksize);
+        	break;
     	case ':':
         	printf("-%c without parameter\n", optopt);
         	break;
@@ -49,19 +54,14 @@ void handle_input(int argc, char* argv[],int* sleep_time, char** ip, char** file
 	}
 }
 
-// client ... its not pretty but it gets the job done...
 int main(int argc, char* argv[] )
 {
   
 	char* file = "vmlinuz.tar";
 	char* ip_addr = "192.168.0.100";
 	int sleep_time = 5;
-    handle_input(argc,argv,&sleep_time,&ip_addr,&file);
-
-    printf("sleep is set to %d optarg\n",sleep_time);
-    printf("ip is set to %s\n",ip_addr);
-    printf("filename is %s\n", file);
-
+	int chunksize = CHUNKSIZE;
+    handle_input(argc,argv,&sleep_time,&ip_addr,&file,&chunksize);
 
 
   	//
@@ -90,8 +90,8 @@ int main(int argc, char* argv[] )
 	printf("bytes_read %d\n",bytes_read);
 
 	//
-	int remainder = bytes_read % CHUNKSIZE;
-	int loops = bytes_read / CHUNKSIZE;
+	int remainder = bytes_read % chunksize;
+	int loops = bytes_read / chunksize;
 
 	//printf("loops %d remainder %d\n",loops,remainder);
 
@@ -119,6 +119,7 @@ int main(int argc, char* argv[] )
     // Filling server information 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_port = htons(PORT); 
+    //inet_aton(ip_addr, &servaddr.sin_addr.s_addr);
     servaddr.sin_addr.s_addr = htons(ip_addr);
 
     if(inet_pton(AF_INET,ip_addr,(&(servaddr.sin_addr))) < 0)
@@ -127,43 +128,20 @@ int main(int argc, char* argv[] )
     //
     int n;
 
-    sleep(10);
+    sleep(1);
 
     //
-    unsigned char local[CHUNKSIZE+HEADER];
-	// handle case where chunk size is bigger than the file
-	if(loops == 0)
-	{
-		//
-		memcpy(&local[HEADER],&buff[loops*CHUNKSIZE],remainder);
-
-		//
-		char high = remainder >> 8;
-		char low = remainder & 0xFF;
-
-		//
-		local[0] = low;
-		local[1] = high | DONE_BIT;
-
-
-		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr));
-		sleep(10);
-		close(sockfd);
-		fclose(fp);
-		free(buff); 	
-		return 0;
-	}
-	
+    unsigned char local[MAX_CHUNKSIZE+HEADER];
 
     // send chunk size bytes
 	for( n = 0; n < loops-1; n++)
 	{
 		//
-		memcpy(&local[HEADER],&buff[n*CHUNKSIZE],CHUNKSIZE);
+		memcpy(&local[HEADER],&buff[n*chunksize],chunksize);
 
 		// 
-		char high = CHUNKSIZE >> 8;
-		char low = CHUNKSIZE & 0xFF;
+		char high = chunksize >> 8;
+		char low = chunksize & 0xFF;
 
 		//
 		local[0] = low;
@@ -174,43 +152,43 @@ int main(int argc, char* argv[] )
 			usleep(sleep_time);
 
 		//
-		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
+		sendto(sockfd,&local[0],chunksize+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
 	}
 
 	// if no remainder send the last chunk with done bit
 	if(remainder == 0){
 		
 		//
-		memcpy(&local[HEADER],&buff[n*CHUNKSIZE],CHUNKSIZE);
+		memcpy(&local[HEADER],&buff[n*chunksize],chunksize);
 
 		//
-		char high = CHUNKSIZE >> 8;
-		char low = CHUNKSIZE & 0xFF;
+		char high = chunksize >> 8;
+		char low = chunksize & 0xFF;
 
 		//
 		local[0] = low;
 		local[1] = high | DONE_BIT;
 
 
-		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
+		sendto(sockfd,&local[0],chunksize+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
 		n++;
 	}
 	// if remainder then send last chunk as normal
 	else{
 		
 		//
-		memcpy(&local[HEADER],&buff[n*CHUNKSIZE],CHUNKSIZE);
+		memcpy(&local[HEADER],&buff[n*chunksize],chunksize);
 
 		//
-		char high = CHUNKSIZE >> 8;
-		char low = CHUNKSIZE & 0xFF;
+		char high = chunksize >> 8;
+		char low = chunksize & 0xFF;
 
 		//
 		local[0] = low;
 		local[1] = high;
 
 		//
-		sendto(sockfd,&local[0],CHUNKSIZE+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
+		sendto(sockfd,&local[0],chunksize+HEADER,0,(const struct sockaddr *) &servaddr,sizeof(servaddr)); 
 
 		n++;
 	}
@@ -219,7 +197,7 @@ int main(int argc, char* argv[] )
 	if(remainder){
 		
 		//
-		memcpy(&local[HEADER],&buff[loops*CHUNKSIZE],remainder);
+		memcpy(&local[HEADER],&buff[loops*chunksize],remainder);
 
 		//
 		char high = remainder >> 8;
